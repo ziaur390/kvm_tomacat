@@ -1,0 +1,8 @@
+<VirtualHost *:80>
+    ProxyPreserveHost On
+    ProxyPass        /  http://{{ app_ip }}:8080/
+    ProxyPassReverse /  http://{{ app_ip }}:8080/
+
+    ErrorLog  ${APACHE_LOG_DIR}/labapp-error.log
+    CustomLog ${APACHE_LOG_DIR}/labapp-access.log combined
+</VirtualHost>

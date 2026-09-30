@@ -12,7 +12,10 @@ WAR=../../roles/tomcat/files/labapp.war
 
 mkdir -p "$(dirname "$WAR")"
 rm -f "$WAR"
-zip -q -r "$WAR" . -x '.*'
+# -X drops zip's extra metadata (high-precision timestamps and friends). Without
+# it the WAR differs byte-for-byte on every rebuild even when nothing changed,
+# so the Ansible copy task reports changed and the idempotency proof breaks.
+zip -q -X -r "$WAR" . -x '.*'
 
 # Fail loudly rather than shipping a WAR that is missing its deployment
 # descriptor - the symptom in Tomcat would otherwise be a confusing 404.
