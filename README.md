@@ -9,6 +9,13 @@ Everything below is measured output from this lab. The raw output behind each
 claim is in [`docs/evidence/`](docs/evidence/) and can be regenerated with
 `bash scripts/capture-evidence.sh`.
 
+> **Just want to understand it?** There is a 42-page plain-English study guide
+> that explains every tool in this project - what it is, why it was needed, how
+> it is used here, and where you will meet it in a real job - starting from zero
+> assumed knowledge. Read the PDF: **[kvm-tomcat-lab-study-guide.pdf](docs/kvm-tomcat-lab-study-guide.pdf)**, or the
+> Markdown sources in [`docs/study-guide/`](docs/study-guide/) (rebuild with
+> `bash docs/study-guide/build-pdf.sh`).
+
 ## Architecture
 
 ```
@@ -223,6 +230,8 @@ credible:
 ├── monitoring/              Prometheus, Grafana, alert rules, dashboard import
 ├── scripts/                 create-vms, capacity-test, evidence, DR helpers
 └── docs/
+    ├── kvm-tomcat-lab-study-guide.pdf   plain-English guide to every tool used
+    ├── study-guide/         the study guide sources, one file per chapter
     ├── build-log.md         module-by-module log, including what broke
     ├── host-setup.md        KVM host install and the WSL quirks
     ├── snapshots-and-resize.md
@@ -230,6 +239,7 @@ credible:
     ├── capacity-planning.md
     ├── hardening.md
     ├── disaster-recovery.md
+    ├── interview-notes.md   the questions this project prepares you for
     └── evidence/            raw output behind every claim in this README
 ```
 
@@ -246,6 +256,7 @@ credible:
 - [x] Load test table filled in with real numbers
 - [x] Disaster recovery drill: total VM loss to working service in 348 s
 - [x] README complete with a real "Lessons learned"
+- [x] Study guide written for someone starting from zero (42 pages)
 
 ## Stack
 
