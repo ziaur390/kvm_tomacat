@@ -1,0 +1,18 @@
+groups:
+  - name: lab
+    rules:
+      - alert: InstanceDown
+        expr: up == 0
+        for: 1m
+
+      - alert: HighCPU
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100) > 80
+        for: 2m
+
+      - alert: LowDisk
+        expr: node_filesystem_avail_bytes{mountpoint="/",fstype!="tmpfs"} / node_filesystem_size_bytes{mountpoint="/",fstype!="tmpfs"} < 0.15
+        for: 5m
+
+      - alert: LowMemory
+        expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.10
+        for: 5m

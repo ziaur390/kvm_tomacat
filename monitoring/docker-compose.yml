@@ -1,0 +1,44 @@
+# Prometheus and Grafana for the lab host.
+#
+# network_mode: host is required, not cosmetic. Prometheus has to reach the VMs
+# on 192.168.122.0/24, which is libvirt's NAT network in this distro's network
+# namespace. Verified working: a container with host networking answers from
+# http://192.168.122.11:9100/metrics.
+#
+# Versions pinned. Prometheus 3.15.0, Grafana 13.2.3, both from the version
+# reported by the image itself. Digests at the time of writing:
+#   prom/prometheus@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e
+#   grafana/grafana@sha256:b28bae15e219c998fb0e0424ed724930cc61b1f61fb404d47c862f9a23f9e572
+#
+#   docker compose up -d
+#   open http://localhost:9090  (Prometheus)
+#   open http://localhost:3000  (Grafana, admin/admin - lab only)
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.15.0
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+
+  grafana:
+    image: grafana/grafana:13.2.3
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      # Provisioned from the repo, so the datasource exists without clicking.
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+
+# Named volumes so scraped history and imported dashboards survive a
+# `docker compose down`.
+volumes:
+  prometheus-data:
+  grafana-data:

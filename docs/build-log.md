@@ -11,7 +11,7 @@ One entry per module. Raw commands, real output, and what broke.
 | M4 | Ansible roles + idempotency proof | done |
 | M5 | Snapshots + live resize | done |
 | M6 | Verified backup + restore drill | done |
-| M7 | Monitoring + capacity plan | not started |
+| M7 | Monitoring + capacity plan | done |
 | M8 | Firewall hardening (optional) | not started |
 | M9 | README, screenshots, resume | not started |
 
@@ -280,3 +280,49 @@ Ruled out the scary explanation: the guest does **not** arm the itco watchdog
 (`RuntimeWatchdogUSec=0`), so a watchdog reset is not the cause. That mattered to
 check, because an armed watchdog firing under load would have silently corrupted
 the M7 capacity numbers.
+
+## M7 - Monitoring and capacity planning
+
+Full write-up: [capacity-planning.md](capacity-planning.md)
+
+- Prometheus 3.15.0 and Grafana 13.2.3 pinned in `monitoring/docker-compose.yml`
+  with host networking, both targets `health=up`, four alert rules evaluating.
+- The Grafana datasource is provisioned from the repo and dashboard 1860 is
+  imported through the API by `monitoring/import-dashboard.sh`, so no step needs
+  a human to click something.
+- Tuned `work.jsp` from 3,000,000 loop iterations (196 ms/request) to 1,000,000
+  (86.8 ms/request), inside the 50-100 ms the load test needs.
+- `scripts/capacity-test.sh` sweeps 1, 2 and 4 vCPU and reads peak CPU back from
+  Prometheus.
+
+| app01 vCPUs | req/sec | p95 | app01 CPU | web01 CPU | host CPU |
+|---|---|---|---|---|---|
+| 1 | 17.93 | 1497 ms | 100% | 14% | 16% |
+| 2 | 29.18 | 971 ms | 100% | 14% | 31% |
+| 4 | 44.14 | 761 ms | 100% | 14% | 56% |
+
+4x the CPUs bought 2.46x the throughput. app01 is pinned at 100% at every size,
+so the application is genuinely CPU-bound; web01 at 14% and the host below 60%
+rule out the proxy tier and host saturation as explanations for the flattening.
+The host turns out to be 4 physical cores with SMT, and app01's 4 vCPUs occupy
+all of them alongside the load generator.
+
+What the data cannot separate: shared-core contention from the JVM's own serial
+parts (GC, single-threaded components). Both produce the same sublinear curve.
+The JMX exporter from the stretch goals is what would tell them apart.
+
+### What broke
+
+1. The first pass of the experiment reported blank CPU columns. The readback
+   used a Python f-string with escaped quotes inside a double-quoted shell
+   string, which Python rejected as a line continuation.
+2. The same experiment run twice differed by a consistent ~20% per data point
+   (14.71/23.88/36.65 then 17.93/29.18/44.14), which is systematic rather than
+   noise. The shape reproduced; the absolute figures are indicative only, and
+   the README says so rather than quoting 44.14 req/sec as though it were exact.
+3. `docker ps` showed three containers from another compose project on the host
+   (`server-operations-lab-*`), running throughout the tests. Measured instead of
+   assumed: 0.00-0.21% CPU, so no distortion.
+4. Grafana looked dead on `localhost:3000` for about a minute after
+   `compose up`, then answered normally. It was still installing bundled
+   plugins. Retry before debugging.
