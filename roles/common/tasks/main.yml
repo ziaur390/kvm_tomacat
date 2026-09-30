@@ -9,4 +9,5 @@
     name:
       - curl
       - htop
+      - rsync
     state: present
