@@ -1,0 +1,21 @@
+### Proof the verification discriminates: a tampered manifest is rejected with
+a non-zero exit code, and the same archive passes again once restored.
+### captured 2026-09-30T13:29:47Z
+
+Warning: Permanently added '192.168.122.11' (ED25519) to the list of known hosts.
+Target archive: webapps-2026-09-30_132943.tar.gz
+
+--- manifest tampered, verifying ---
+tar: ./labapp/work.jsp: time stamp 2026-09-30 18:00:08 is 16219.771649735 s in the future
+tar: ./labapp/health.jsp: time stamp 2026-09-30 17:06:02 is 12973.771247684 s in the future
+tar: ./labapp/WEB-INF/web.xml: time stamp 2026-09-30 17:06:02 is 12973.770857212 s in the future
+RESTORE MISMATCH: /var/backups/tomcat/webapps-2026-09-30_132943.tar.gz
+exit code: 1
+
+--- manifest restored, verifying again ---
+tar: ./labapp/work.jsp: time stamp 2026-09-30 18:00:08 is 16219.746722177 s in the future
+tar: ./labapp/health.jsp: time stamp 2026-09-30 17:06:02 is 12973.74633408 s in the future
+tar: ./labapp/WEB-INF/web.xml: time stamp 2026-09-30 17:06:02 is 12973.746143881 s in the future
+RESTORE VERIFIED: 5 files match (/var/backups/tomcat/webapps-2026-09-30_132943.tar.gz)
+
+DRILL PASSED: the tampered backup was rejected with a non-zero exit code

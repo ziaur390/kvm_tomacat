@@ -1,0 +1,31 @@
+### The backup exists outside the VM it protects, and the checksum computed on
+the VM is re-checked after the transfer.
+### captured 2026-09-30T13:29:48Z
+
+receiving incremental file list
+./
+webapps-2026-09-30_132943.tar.gz
+webapps-2026-09-30_132943.tar.gz.manifest
+webapps-2026-09-30_132943.tar.gz.sha256
+
+sent 84 bytes  received 2,584 bytes  5,336.00 bytes/sec
+total size is 6,206  speedup is 2.33
+
+Verifying the archives survived the transfer:
+webapps-2026-09-30_124302.tar.gz: OK
+webapps-2026-09-30_132750.tar.gz: OK
+webapps-2026-09-30_132943.tar.gz: OK
+
+$ ls -la ~/kvm-lab-backups/
+total 44
+drwxr-x---  2 ziaur26261 ziaur26261 4096 Sep 30 18:29 .
+drwxr-x--x 17 ziaur26261 ziaur26261 4096 Sep 30 17:43 ..
+-rw-r--r--  1 ziaur26261 ziaur26261 1327 Sep 30 17:43 webapps-2026-09-30_124302.tar.gz
+-rw-r--r--  1 ziaur26261 ziaur26261  436 Sep 30 17:43 webapps-2026-09-30_124302.tar.gz.manifest
+-rw-r--r--  1 ziaur26261 ziaur26261   99 Sep 30 17:43 webapps-2026-09-30_124302.tar.gz.sha256
+-rw-r--r--  1 ziaur26261 ziaur26261 1637 Sep 30 18:27 webapps-2026-09-30_132750.tar.gz
+-rw-r--r--  1 ziaur26261 ziaur26261  436 Sep 30 18:27 webapps-2026-09-30_132750.tar.gz.manifest
+-rw-r--r--  1 ziaur26261 ziaur26261   99 Sep 30 18:27 webapps-2026-09-30_132750.tar.gz.sha256
+-rw-r--r--  1 ziaur26261 ziaur26261 1637 Sep 30 18:29 webapps-2026-09-30_132943.tar.gz
+-rw-r--r--  1 ziaur26261 ziaur26261  436 Sep 30 18:29 webapps-2026-09-30_132943.tar.gz.manifest
+-rw-r--r--  1 ziaur26261 ziaur26261   99 Sep 30 18:29 webapps-2026-09-30_132943.tar.gz.sha256
