@@ -6,11 +6,13 @@
     - common
     - node_exporter
 
-# The application tier: Tomcat 10 serving labapp.war.
+# The application tier: Tomcat 10 serving labapp.war, plus the nightly backup
+# whose restore is verified by checksum.
 - hosts: app
   become: true
   roles:
     - tomcat
+    - backup
 
 # The web tier: Apache reverse-proxying to Tomcat.
 - hosts: web

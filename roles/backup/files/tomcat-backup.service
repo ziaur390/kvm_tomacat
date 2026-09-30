@@ -1,0 +1,6 @@
+[Unit]
+Description=Tomcat webapps backup with restore verification
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/tomcat-backup.sh

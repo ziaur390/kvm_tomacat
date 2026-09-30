@@ -10,7 +10,7 @@ One entry per module. Raw commands, real output, and what broke.
 | M3 | Sample app WAR | done |
 | M4 | Ansible roles + idempotency proof | done |
 | M5 | Snapshots + live resize | done |
-| M6 | Verified backup + restore drill | not started |
+| M6 | Verified backup + restore drill | done |
 | M7 | Monitoring + capacity plan | not started |
 | M8 | Firewall hardening (optional) | not started |
 | M9 | README, screenshots, resume | not started |
@@ -223,6 +223,52 @@ Full write-up: [snapshots-and-resize.md](snapshots-and-resize.md)
    every later playbook run failed against guests that were still booting, so
    nothing was ever redeployed. Checksums at every step settled it. Lesson: do
    not swallow stderr on the command that is supposed to prove something.
+
+## M6 - Backup with a verified restore
+
+Full write-up: [backup-and-restore.md](backup-and-restore.md)
+
+- `tomcat-backup.sh` archives `webapps/`, extracts the archive into a scratch
+  directory, hashes the restore, compares it against a manifest of the source,
+  and exits non-zero on any disagreement.
+- Real run: `RESTORE VERIFIED: 5 files match`, plus a 7-day retention sweep and
+  a nightly systemd timer with `Persistent=true`.
+- `scripts/backup-failure-drill.sh` tampers with a manifest, asserts the
+  verifier rejects it with exit code 1, then restores the manifest and asserts
+  it passes. Both outcomes are asserted, so the drill fails if the verification
+  ever silently breaks.
+- `scripts/pull-backups.sh` rsyncs the archives to the KVM host and re-checks
+  the checksum that was computed on the VM.
+
+### Deliberate addition beyond the guide
+
+The script refuses to back up an empty source directory. Two empty manifests
+compare equal, so the guide's version as written would print
+`RESTORE VERIFIED: 0 files match` for a deployment directory containing nothing.
+That is not theoretical: `webapps/` really was empty for a while during M5, and
+an unguarded tool would have "verified" a night of meaningless backups.
+
+### Environment note: a persistent WSL session is required
+
+Root cause of the churn in M5, finally pinned down. WSL tears down the distro
+when the last session exits. That stops `libvirtd`, which takes qemu with it, so
+the guests are power-cycled and only come back because of autostart.
+
+Evidence: the kernel messages `Linux version 6.18.40.1-microsoft-standard-WSL2`
+and `mini_init: WSL user cgroup created` repeat between commands, while
+`/proc/uptime` and `boot_id` carry on regardless - because the WSL VM kernel
+stays alive and only the distro is torn down. `vmIdleTimeout=-1` does not help,
+because this is session-driven, not idle-driven.
+
+Workaround, verified: hold a session open.
+
+```bash
+nohup wsl.exe -e bash -c "sleep 3600" >/dev/null 2>&1 &
+```
+
+With that running, qemu process start times and `libvirtd`'s start time stayed
+identical across a 90 second gap and the guests stopped rebooting. Without it,
+the guests were rebooted between almost every command.
 
 ### Follow-up after the revert
 
