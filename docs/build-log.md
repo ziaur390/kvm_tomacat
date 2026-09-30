@@ -7,7 +7,7 @@ One entry per module. Raw commands, real output, and what broke.
 | M0 | Repository scaffold | done |
 | M1 | KVM host install + validation | done |
 | M2 | Two VMs with fixed IPs | done |
-| M3 | Sample app WAR | not started |
+| M3 | Sample app WAR | done |
 | M4 | Ansible roles + idempotency proof | not started |
 | M5 | Snapshots + live resize | not started |
 | M6 | Verified backup + restore drill | not started |
@@ -89,3 +89,34 @@ is deliberate: app01 is undersized so the M7 load test has a bottleneck.
    `ansible` package already ships in
    `/usr/lib/python3/dist-packages/ansible_collections`. Removed the user copy;
    no galaxy install is needed on this host.
+
+## M3 - Sample app WAR
+
+Three tiny files and a build script:
+
+- `app/src/health.jsp` - returns `OK <hostname>`, used by Ansible's deployment
+  health check and by every "is it up" question later.
+- `app/src/work.jsp` - burns CPU in a loop on purpose. M7's load test needs an
+  endpoint that actually saturates a vCPU; a page that just prints text would
+  leave nothing to measure.
+- `app/src/WEB-INF/web.xml` - maps `/health` and `/work` onto those JSPs, so the
+  URLs do not end in `.jsp`.
+- `app/build.sh` - zips `src/` into `roles/tomcat/files/labapp.war`.
+
+```
+$ bash app/build.sh
+built ../../roles/tomcat/files/labapp.war
+      Length      Name
+          96      health.jsp
+         162      work.jsp
+         554      WEB-INF/web.xml
+```
+
+`build.sh` fails if `WEB-INF/web.xml` is missing from the archive. Without that
+guard the symptom in Tomcat is a confusing 404 rather than a broken build.
+
+Deploys as context `/labapp`, so the endpoints are `/labapp/health` and
+`/labapp/work`. A named context avoids fighting Tomcat's built-in ROOT app.
+
+TODO (M7): the loop count of 3,000,000 is a guess. Measure the response time
+under `ab` and tune it so one request costs roughly 50-100 ms.
