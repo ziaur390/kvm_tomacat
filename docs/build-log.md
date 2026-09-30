@@ -12,7 +12,7 @@ One entry per module. Raw commands, real output, and what broke.
 | M5 | Snapshots + live resize | done |
 | M6 | Verified backup + restore drill | done |
 | M7 | Monitoring + capacity plan | done |
-| M8 | Firewall hardening (optional) | not started |
+| M8 | Firewall hardening (optional) | done |
 | M9 | README, screenshots, resume | not started |
 
 ## Environment
@@ -326,3 +326,35 @@ The JMX exporter from the stretch goals is what would tell them apart.
 4. Grafana looked dead on `localhost:3000` for about a minute after
    `compose up`, then answered normally. It was still installing bundled
    plugins. Retry before debugging.
+
+## M8 - Firewall hardening
+
+Full write-up: [hardening.md](hardening.md)
+
+| app01 allows | from | web01 allows | from |
+|---|---|---|---|
+| 22/tcp | anywhere | 22/tcp | anywhere |
+| 9100/tcp | 192.168.122.1 | 9100/tcp | 192.168.122.1 |
+| 8080/tcp | 192.168.122.12 | 80/tcp | anywhere |
+
+Both default-deny incoming. Allow rules are applied before the default-deny
+policy is switched on, because an empty deny ruleset would kill the SSH session
+running the playbook.
+
+Before hardening, `curl http://192.168.122.11:8080/labapp/health` from the host
+returned `HTTP 200`, which made the reverse proxy decorative. After it:
+
+```
+through Apache:                 HTTP 200  body=OK app01
+app01:8080 from host:           HTTP 000 (curl exit 28 - dropped, not refused)
+dmesg on app01 for the attempt: 10 UFW log lines
+```
+
+Prometheus targets stayed `up`, which is the usual self-inflicted casualty of a
+ufw rollout and the reason the 9100 rule names the monitoring host explicitly.
+Key-only SSH confirms with `Permission denied (publickey)`. The full role set
+still converges: `changed=0` on the next two runs.
+
+Gaps recorded in the write-up rather than glossed over: SSH open to anywhere, no
+TLS, no fail2ban, host-level rather than network-level enforcement, unrestricted
+egress, and no effect on availability.

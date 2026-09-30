@@ -1,10 +1,12 @@
 ---
-# Runs against both VMs: baseline packages and the metrics agent.
+# Runs against both VMs: baseline packages, the metrics agent, and the firewall
+# rules that match the two-tier design.
 - hosts: all
   become: true
   roles:
     - common
     - node_exporter
+    - hardening
 
 # The application tier: Tomcat 10 serving labapp.war, plus the nightly backup
 # whose restore is verified by checksum.
