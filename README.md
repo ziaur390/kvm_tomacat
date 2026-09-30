@@ -265,3 +265,7 @@ JSP, systemd timers, tar/SHA-256 integrity verification, rsync, Prometheus,
 Grafana, ufw, bash.
 
 Built on Ubuntu 24.04 LTS.
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE).
