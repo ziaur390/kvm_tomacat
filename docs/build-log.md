@@ -9,7 +9,7 @@ One entry per module. Raw commands, real output, and what broke.
 | M2 | Two VMs with fixed IPs | done |
 | M3 | Sample app WAR | done |
 | M4 | Ansible roles + idempotency proof | done |
-| M5 | Snapshots + live resize | not started |
+| M5 | Snapshots + live resize | done |
 | M6 | Verified backup + restore drill | not started |
 | M7 | Monitoring + capacity plan | not started |
 | M8 | Firewall hardening (optional) | not started |
@@ -186,3 +186,40 @@ configuration management and a shell script.
 2. `a2dissite` replaced the guide's "delete the symlink with the `file` module"
    step. Deleting a symlink by path is a footgun, and the `removes:` guard makes
    the real tool report `ok` instead of `changed` on later runs.
+
+## M5 - Snapshots, rollback and live resizing
+
+Full write-up: [snapshots-and-resize.md](snapshots-and-resize.md)
+
+- Took a `clean-deploy` snapshot, recorded the WAR sha256, deleted the deployed
+  app (`HTTP 404` through Apache), reverted, and confirmed the WAR returned with
+  the identical hash.
+- The revert took 5.1 s and did **not** reboot the guest (uptime `up 1 minute`
+  before and after), so it is a memory-state rollback rather than a disk
+  restore plus boot.
+- Live resize: memory `1867 MB -> 2891 MB` inside the guest with no reboot. Two
+  vCPUs were added at the hypervisor but the guest kept `nproc=1` - the kernel
+  logged `ACPI: CPU1 has been hot-added` and left it offline, so it had to be
+  onlined by hand. The guide's `nproc` verification step would have failed here
+  as written.
+- Exceeding the creation-time ceiling fails loudly: `setvcpus 5` and `setmem 8G`
+  are both rejected with errors naming the maximums.
+
+### What broke
+
+1. **The WSL idle shutdown was power-cycling the guests**, hard-killing qemu and
+   restarting the VMs. Three boots in twelve minutes, plus an SSH session that
+   died mid-command. Fixed with `vmIdleTimeout=-1` in `C:\Users\ziaur\.wslconfig`
+   and verified with a 150 second idle test (uptime `25s -> 184s`).
+2. **The stale-bridge guard could never be false.** `pgrep -x
+   qemu-system-x86_64` never matches because Linux truncates process names to 15
+   characters, so the negation was always true and the script would have deleted
+   `virbr0` on every `libvirtd` start, including with live VMs. Replaced with a
+   check of the bridge's own port list.
+3. **A dropped SSH connection silently looked like an empty directory.** The
+   destructive `rm` had worked, but the listing before it printed nothing
+   because the connection dropped and stderr went to `/dev/null`. That sent me
+   chasing a lost-write theory for several turns. The real story was duller:
+   every later playbook run failed against guests that were still booting, so
+   nothing was ever redeployed. Checksums at every step settled it. Lesson: do
+   not swallow stderr on the command that is supposed to prove something.

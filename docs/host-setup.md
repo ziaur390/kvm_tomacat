@@ -159,16 +159,42 @@ printf '%s\n' '[Service]' \
 sudo systemctl daemon-reload
 ```
 
-The guard matters. The script only deletes the bridge when no
-`qemu-system-x86_64` process is running, so an ordinary
-`systemctl restart libvirtd` with live VMs does not yank the network out from
-under them. An unconditional delete would have been the wrong fix.
+The guard matters. The script deletes the bridge only when nothing is attached
+to it, checking `/sys/class/net/virbr0/brif`. If any interface is a bridge port,
+a domain is live and the bridge is left alone. An unconditional delete would rip
+the network out from under running VMs.
+
+An earlier version of the guard used `pgrep -x qemu-system-x86_64`, which can
+never match anything: Linux truncates process names to 15 characters, so the
+process is `qemu-system-x86` and the negation was always true. That guard looked
+correct, reviewed correctly, and would have deleted the bridge on every
+dependency restart. Testing it against a running VM is what caught it:
+
+```
+$ pgrep -x qemu-system-x86_64 ; echo $?
+1                       <-- never matches, so "! pgrep" was always true
+$ ls -A /sys/class/net/virbr0/brif
+vnet0 vnet1             <-- real state: two live domains attached
+```
+
+### WSL idle shutdown
+
+WSL shuts down its utility VM when idle, which hard-kills qemu and power-cycles
+the guests. They autostart again, but an unflushed guest write can be lost, and
+an SSH session can die mid-command. Disabled in `C:\Users\ziaur\.wslconfig`:
+
+```ini
+[wsl2]
+vmIdleTimeout=-1
+```
+
+After that change WSL survived a 150 second idle window with no WSL processes
+running (uptime `25s` before, `184s` after) and both domains stayed up.
 
 This is a WSL-only artifact. On a real Ubuntu host, rebooting destroys `virbr0`
-with the rest of the network namespace, so the problem does not exist.
+with the rest of the network namespace, so neither problem exists.
 
-Verify the fix by restarting the distro and checking that the network
-self-heals:
+Verify the network self-heals after a distro restart:
 
 ```bash
 virsh net-list --all && ping -c1 192.168.122.1
