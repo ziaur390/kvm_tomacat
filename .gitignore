@@ -1,0 +1,6 @@
+*.qcow2
+*.retry
+*.log
+kvm-lab-backups/
+id_*
+*.pem
