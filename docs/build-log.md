@@ -8,7 +8,7 @@ One entry per module. Raw commands, real output, and what broke.
 | M1 | KVM host install + validation | done |
 | M2 | Two VMs with fixed IPs | done |
 | M3 | Sample app WAR | done |
-| M4 | Ansible roles + idempotency proof | not started |
+| M4 | Ansible roles + idempotency proof | done |
 | M5 | Snapshots + live resize | not started |
 | M6 | Verified backup + restore drill | not started |
 | M7 | Monitoring + capacity plan | not started |
@@ -120,3 +120,69 @@ Deploys as context `/labapp`, so the endpoints are `/labapp/health` and
 
 TODO (M7): the loop count of 3,000,000 is a guess. Measure the response time
 under `ab` and tune it so one request costs roughly 50-100 ms.
+
+## M4 - Ansible roles, deploy and idempotency proof
+
+Four roles: `common` (apt cache, curl, htop), `node_exporter` (the metrics
+agent for M7), `tomcat` (WebLogic-style app tier), `apache` (reverse proxy).
+
+### First run
+
+```
+PLAY RECAP
+app01  : ok=10  changed=4  failed=0
+web01  : ok=14  changed=9  failed=0
+```
+
+The Tomcat health check retried twice before passing. That is expected, not a
+bug: the first request to a JSP makes Tomcat compile it, which takes a few
+seconds. Hence `retries: 12 delay: 5` rather than a single attempt.
+
+### The deployment works
+
+```
+$ curl http://192.168.122.12/labapp/health     # through Apache on web01
+OK app01
+
+$ curl http://192.168.122.11:8080/labapp/health   # direct to Tomcat
+OK app01
+```
+
+Two things worth noting. The response is `OK app01` while the URL pointed at
+`web01` - the hostname in the body is the app machine's, which proves the
+request really was proxied rather than served locally. And the same URL works
+directly on 8080, which is what M8 will close off with ufw.
+
+### Second run - idempotency proof
+
+```
+PLAY RECAP
+app01  : ok=10  changed=0  failed=0
+web01  : ok=12  changed=0  failed=0
+```
+
+`changed=0` means every task checked the actual state of the machine and found
+nothing to do. That is what idempotent means, and it is the difference between
+configuration management and a shell script.
+
+### What broke
+
+1. **A rebuilt WAR was never byte-identical.** Running `app/build.sh` twice with
+   no source changes produced two different archives, so the `Deploy the lab WAR`
+   copy task reported `changed` on every run and the idempotency proof was a
+   lie waiting to be exposed. Cause: Info-ZIP writes extra metadata (including
+   high-precision timestamps) into the archive. Fix: `zip -X`.
+
+   ```
+   before -X:  d6432034986adb0e...
+   after  -X:  2e2a19812c6e926f...
+   ```
+
+   After the fix, two rebuilds hash identically, and the playbook reports
+   `changed=1` for the new WAR and then `changed=0` on the run after that.
+   Worth knowing: an idempotency claim is only as good as the artifact you feed
+   it.
+
+2. `a2dissite` replaced the guide's "delete the symlink with the `file` module"
+   step. Deleting a symlink by path is a footgun, and the `removes:` guard makes
+   the real tool report `ok` instead of `changed` on later runs.

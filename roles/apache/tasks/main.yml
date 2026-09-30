@@ -1,0 +1,41 @@
+---
+- name: Install Apache
+  ansible.builtin.apt:
+    name: apache2
+    state: present
+
+- name: Enable proxy modules
+  community.general.apache2_module:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - proxy
+    - proxy_http
+  notify: Restart apache2
+
+- name: Install the reverse-proxy vhost
+  ansible.builtin.template:
+    src: labapp.conf.j2
+    dest: /etc/apache2/sites-available/labapp.conf
+    mode: "0644"
+  notify: Reload apache2
+
+# a2dissite rather than deleting the symlink by hand, and guarded by
+# `removes:` so the task reports ok instead of changed on every run.
+- name: Disable the default site
+  ansible.builtin.command: a2dissite 000-default
+  args:
+    removes: /etc/apache2/sites-enabled/000-default.conf
+  notify: Reload apache2
+
+- name: Enable the lab site
+  ansible.builtin.command: a2ensite labapp
+  args:
+    creates: /etc/apache2/sites-enabled/labapp.conf
+  notify: Reload apache2
+
+- name: Ensure Apache is running
+  ansible.builtin.service:
+    name: apache2
+    state: started
+    enabled: true

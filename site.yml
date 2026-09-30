@@ -1,0 +1,19 @@
+---
+# Runs against both VMs: baseline packages and the metrics agent.
+- hosts: all
+  become: true
+  roles:
+    - common
+    - node_exporter
+
+# The application tier: Tomcat 10 serving labapp.war.
+- hosts: app
+  become: true
+  roles:
+    - tomcat
+
+# The web tier: Apache reverse-proxying to Tomcat.
+- hosts: web
+  become: true
+  roles:
+    - apache
