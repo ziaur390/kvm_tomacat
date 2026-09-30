@@ -5,7 +5,7 @@ One entry per module. Raw commands, real output, and what broke.
 | Module | What it delivers | Status |
 |---|---|---|
 | M0 | Repository scaffold | done |
-| M1 | KVM host install + validation | not started |
+| M1 | KVM host install + validation | done |
 | M2 | Two VMs with fixed IPs | not started |
 | M3 | Sample app WAR | not started |
 | M4 | Ansible roles + idempotency proof | not started |
@@ -27,3 +27,23 @@ One entry per module. Raw commands, real output, and what broke.
 `git init -b main`, committed `.gitignore`, README stub and `docs/screenshots/`.
 Direct push to `main` for the initial commit only; every module from M1 onward
 lands through a feature branch and a pull request.
+
+## M1 - KVM host install + validation
+
+Detailed notes: [host-setup.md](host-setup.md)
+
+- Installed qemu, libvirt, virtinst, cpu-checker, zip; enabled `libvirtd`.
+- `kvm-ok` reports "KVM acceleration can be used" - nested virt works in WSL2.
+- Added the user to `libvirt` and `kvm`; restarted the distro to apply groups.
+  `virsh` then works without sudo.
+- Downloaded and checksum-verified the noble cloud image (597 MB).
+
+### What broke
+
+After the distro restart the `default` network would not start:
+`Network is already in use by interface virbr0`. WSL keeps the kernel alive
+across a distro restart, so `virbr0` survived while `libvirtd` did not, and the
+new daemon will not adopt a bridge it did not create.
+
+Fix: `sudo ip link delete virbr0 && virsh net-start default`. Documented in
+[host-setup.md](host-setup.md) because it will recur after every WSL restart.
