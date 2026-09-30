@@ -1,0 +1,50 @@
+---
+# Order matters here. Firewall rules are applied before the default-deny policy
+# is switched on, so a mistake cannot lock us out mid-run: if ufw were enabled
+# with an empty ruleset, the SSH session running this playbook would be the
+# first thing it killed.
+#
+# The rules encode the two-tier design: the world may reach only the web tier,
+# the web tier may reach Tomcat, and only the monitoring host may scrape.
+
+- name: Install ufw
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+
+- name: Allow SSH
+  community.general.ufw:
+    rule: allow
+    port: "22"
+    proto: tcp
+
+- name: Allow node exporter from the monitoring host only
+  community.general.ufw:
+    rule: allow
+    port: "9100"
+    proto: tcp
+    from_ip: "{{ monitor_ip }}"
+
+- name: Allow HTTP on the web tier
+  community.general.ufw:
+    rule: allow
+    port: "80"
+    proto: tcp
+  when: inventory_hostname in groups['web']
+
+# Tomcat is not exposed to the world or even to the host, only to the proxy
+# that fronts it. This is the rule that makes the reverse proxy load-bearing
+# rather than decorative.
+- name: Allow Tomcat from the web tier only
+  community.general.ufw:
+    rule: allow
+    port: "8080"
+    proto: tcp
+    from_ip: "{{ web_ip }}"
+  when: inventory_hostname in groups['app']
+
+- name: Default deny incoming and enable
+  community.general.ufw:
+    state: enabled
+    policy: deny
+    direction: incoming
