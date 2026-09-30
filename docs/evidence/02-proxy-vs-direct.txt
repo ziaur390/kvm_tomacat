@@ -1,0 +1,37 @@
+### The reverse proxy is load-bearing: the app answers through web01 and is
+unreachable directly from the host, which is not on the allow list.
+### captured 2026-09-30T13:39:58Z
+
+$ curl http://192.168.122.12/labapp/health          # through Apache on web01
+OK app01
+
+
+$ curl http://192.168.122.11:8080/labapp/health     # direct to Tomcat, bypassing the proxy
+HTTP 000 (curl exit 28)
+  exit 28 = timed out, i.e. dropped by the firewall rather than refused
+
+$ sudo ufw status verbose   # on app01
+Status: active
+Logging: on (low)
+Default: deny (incoming), allow (outgoing), disabled (routed)
+New profiles: skip
+
+To                         Action      From
+--                         ------      ----
+22/tcp                     ALLOW IN    Anywhere                  
+9100/tcp                   ALLOW IN    192.168.122.1             
+8080/tcp                   ALLOW IN    192.168.122.12            
+22/tcp (v6)                ALLOW IN    Anywhere (v6)             
+
+
+$ sudo ufw status   # on web01
+Status: active
+
+To                         Action      From
+--                         ------      ----
+22/tcp                     ALLOW       Anywhere                  
+9100/tcp                   ALLOW       192.168.122.1             
+80/tcp                     ALLOW       Anywhere                  
+22/tcp (v6)                ALLOW       Anywhere (v6)             
+80/tcp (v6)                ALLOW       Anywhere (v6)             
+

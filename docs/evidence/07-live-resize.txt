@@ -1,0 +1,37 @@
+### Live CPU and memory resize, and the failure mode where a hot-added vCPU
+stays offline until the guest is told to online it.
+### captured 2026-09-30T13:40:10Z
+
+$ virsh dominfo app01 | grep -E '^CPU\(s\)|Used memory'    # before
+CPU(s):         1
+Used memory:    2097152 KiB
+$ ssh ops@192.168.122.11 'nproc'
+1
+
+$ virsh setvcpus app01 2 --live; virsh setmem app01 3G --live
+
+  setvcpus ok
+
+  setmem ok
+
+$ ssh ops@192.168.122.11 'nproc'    # still 1: ACPI hot-added CPU1 and left it offline
+1
+0-1
+0
+
+$ ssh ops@192.168.122.11 'echo 1 | sudo tee /sys/devices/system/cpu/cpu1/online; nproc'
+2
+
+$ virsh setmem app01 3G --live   -> visible inside the guest
+Mem:            2891         535        1580           5        1020        2355
+
+$ virsh setvcpus app01 5 --live    # past the maximum fixed at creation
+error: invalid argument: requested vcpus is greater than max allowable vcpus for the live domain: 5 > 4
+
+$ virsh setmem app01 8G --live
+error: invalid argument: cannot set memory higher than max memory
+
+
+# restoring the documented shape
+
+

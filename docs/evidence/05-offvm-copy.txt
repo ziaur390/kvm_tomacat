@@ -1,0 +1,35 @@
+### The backup exists outside the VM it protects, and the checksum computed on
+the VM is re-checked after the transfer.
+### captured 2026-09-30T13:40:09Z
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@    WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!     @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+IT IS POSSIBLE THAT SOMEONE IS DOING SOMETHING NASTY!
+Someone could be eavesdropping on you right now (man-in-the-middle attack)!
+It is also possible that a host key has just been changed.
+The fingerprint for the ED25519 key sent by the remote host is
+SHA256:k2j/yqMoXzgybpYch5wvmKWJXUBBFhsWYUfrLpScXm0.
+Please contact your system administrator.
+Add correct host key in /home/ziaur26261/.ssh/known_hosts to get rid of this message.
+Offending ECDSA key in /home/ziaur26261/.ssh/known_hosts:12
+  remove with:
+  ssh-keygen -f '/home/ziaur26261/.ssh/known_hosts' -R '192.168.122.11'
+Host key for 192.168.122.11 has changed and you have requested strict checking.
+Host key verification failed.
+rsync: connection unexpectedly closed (0 bytes received so far) [Receiver]
+rsync error: unexplained error (code 255) at io.c(232) [Receiver=3.2.7]
+
+$ ls -la ~/kvm-lab-backups/
+total 44
+drwxr-x---  2 ziaur26261 ziaur26261 4096 Sep 30 18:29 .
+drwxr-x--x 17 ziaur26261 ziaur26261 4096 Sep 30 17:43 ..
+-rw-r--r--  1 ziaur26261 ziaur26261 1327 Sep 30 17:43 webapps-2026-09-30_124302.tar.gz
+-rw-r--r--  1 ziaur26261 ziaur26261  436 Sep 30 17:43 webapps-2026-09-30_124302.tar.gz.manifest
+-rw-r--r--  1 ziaur26261 ziaur26261   99 Sep 30 17:43 webapps-2026-09-30_124302.tar.gz.sha256
+-rw-r--r--  1 ziaur26261 ziaur26261 1637 Sep 30 18:27 webapps-2026-09-30_132750.tar.gz
+-rw-r--r--  1 ziaur26261 ziaur26261  436 Sep 30 18:27 webapps-2026-09-30_132750.tar.gz.manifest
+-rw-r--r--  1 ziaur26261 ziaur26261   99 Sep 30 18:27 webapps-2026-09-30_132750.tar.gz.sha256
+-rw-r--r--  1 ziaur26261 ziaur26261 1637 Sep 30 18:29 webapps-2026-09-30_132943.tar.gz
+-rw-r--r--  1 ziaur26261 ziaur26261  436 Sep 30 18:29 webapps-2026-09-30_132943.tar.gz.manifest
+-rw-r--r--  1 ziaur26261 ziaur26261   99 Sep 30 18:29 webapps-2026-09-30_132943.tar.gz.sha256

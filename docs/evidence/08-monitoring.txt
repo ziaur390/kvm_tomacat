@@ -1,0 +1,21 @@
+### Prometheus scrape targets, loaded alert rules, and Grafana health.
+### captured 2026-09-30T13:40:15Z
+
+$ curl -s localhost:9090/api/v1/targets
+  192.168.122.11:9100    job=node   health=up
+  192.168.122.12:9100    job=node   health=up
+
+$ curl -s localhost:9090/api/v1/rules
+  InstanceDown   state=inactive
+  HighCPU        state=inactive
+  LowDisk        state=inactive
+  LowMemory      state=inactive
+
+$ curl -s localhost:3000/api/health
+{
+  "database": "ok",
+  "version": "13.2.3",
+  "commit": "90ffed056f0884267356c12a0eeb72a022af53f1"
+}
+$ curl -s -u admin:admin 'localhost:3000/api/search?type=dash-db'
+  Node Exporter Full (uid=rYdddlPWk)

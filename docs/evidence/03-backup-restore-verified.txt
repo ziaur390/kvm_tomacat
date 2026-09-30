@@ -1,0 +1,26 @@
+### Backing up shows the restore being verified, not just the archive created.
+### captured 2026-09-30T13:40:05Z
+
+Sep 30 13:40:05 app01 systemd[1]: Starting tomcat-backup.service - Tomcat webapps backup with restore verification...
+Sep 30 13:40:05 app01 tomcat-backup.sh[9049]: tar: ./labapp/work.jsp: time stamp 2026-09-30 18:00:08 is 15602.34993012 s in the future
+Sep 30 13:40:05 app01 tomcat-backup.sh[9049]: tar: ./labapp/health.jsp: time stamp 2026-09-30 17:06:02 is 12356.349421775 s in the future
+Sep 30 13:40:05 app01 tomcat-backup.sh[9049]: tar: ./labapp/WEB-INF/web.xml: time stamp 2026-09-30 17:06:02 is 12356.349185671 s in the future
+Sep 30 13:40:05 app01 tomcat-backup.sh[9026]: RESTORE VERIFIED: 5 files match (/var/backups/tomcat/webapps-2026-09-30_134005.tar.gz)
+Sep 30 13:40:05 app01 tomcat-backup.sh[9026]: Backup complete: /var/backups/tomcat/webapps-2026-09-30_134005.tar.gz (4.0K)
+Sep 30 13:40:05 app01 systemd[1]: tomcat-backup.service: Deactivated successfully.
+Sep 30 13:40:05 app01 systemd[1]: Finished tomcat-backup.service - Tomcat webapps backup with restore verification.
+
+$ sudo ls -la /var/backups/tomcat/
+total 20
+drwxr-x--- 2 root root 4096 Sep 30 13:40 .
+drwxr-xr-x 3 root root 4096 Sep 30 13:40 ..
+-rw-r--r-- 1 root root 1637 Sep 30 13:40 webapps-2026-09-30_134005.tar.gz
+-rw-r--r-- 1 root root  436 Sep 30 13:40 webapps-2026-09-30_134005.tar.gz.manifest
+-rw-r--r-- 1 root root   99 Sep 30 13:40 webapps-2026-09-30_134005.tar.gz.sha256
+
+$ systemctl list-timers tomcat-backup.timer
+NEXT                        LEFT LAST PASSED UNIT                ACTIVATES
+Thu 2026-10-01 02:00:00 UTC  12h -         - tomcat-backup.timer tomcat-backup.service
+
+1 timers listed.
+Pass --all to see loaded but inactive timers, too.
