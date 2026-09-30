@@ -6,7 +6,7 @@ One entry per module. Raw commands, real output, and what broke.
 |---|---|---|
 | M0 | Repository scaffold | done |
 | M1 | KVM host install + validation | done |
-| M2 | Two VMs with fixed IPs | not started |
+| M2 | Two VMs with fixed IPs | done |
 | M3 | Sample app WAR | not started |
 | M4 | Ansible roles + idempotency proof | not started |
 | M5 | Snapshots + live resize | not started |
@@ -47,3 +47,45 @@ new daemon will not adopt a bridge it did not create.
 
 Fix: `sudo ip link delete virbr0 && virsh net-start default`. Documented in
 [host-setup.md](host-setup.md) because it will recur after every WSL restart.
+
+## M2 - Two VMs with fixed IPs
+
+- Generated `~/.ssh/kvmlab` (ed25519, no passphrase - lab only).
+- `scripts/create-vms.sh` reserves the two addresses by MAC in libvirt's DHCP
+  and creates both domains from the cloud image, with `maxvcpus`/`maxmemory`
+  set for the later live resize in M5.
+- Both VMs boot, get their reserved addresses, and accept key-only SSH as `ops`.
+- `ansible all -m ping` succeeds against both.
+
+```
+$ virsh list --all
+ Id   Name    State
+ 1    app01   running
+ 2    web01   running
+
+$ virsh net-dhcp-leases default
+ 192.168.122.11/24   52:54:00:aa:00:11   app01
+ 192.168.122.12/24   52:54:00:aa:00:12   web01
+
+$ ssh ops@192.168.122.11 'hostname && nproc && free -m | head -2'
+app01
+1
+Mem:  1867 total  1433 free
+```
+
+The `2048 MiB is less than the recommended 3072 MiB` warning from virt-install
+is deliberate: app01 is undersized so the M7 load test has a bottleneck.
+
+### What broke
+
+1. The stale `virbr0` bit again while installing packages, so the reservations
+   step failed with `network is not running`. Because it kept recurring, the
+   one-line fix became a permanent one: a systemd `ExecStartPre` running
+   `scripts/libvirt-clear-stale-bridge.sh`, guarded so it only fires when no
+   qemu domain is running.
+2. `ansible-galaxy collection install community.general` pulled 13.4.0 into
+   `~/.ansible/collections`, which warns that it does not support ansible-core
+   2.16.3 - and that user path shadows the supported 8.3.0 that the apt
+   `ansible` package already ships in
+   `/usr/lib/python3/dist-packages/ansible_collections`. Removed the user copy;
+   no galaxy install is needed on this host.

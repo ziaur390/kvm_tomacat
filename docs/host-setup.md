@@ -84,6 +84,29 @@ The `default` libvirt network is a NAT network on `192.168.122.0/24` with the
 host as gateway `192.168.122.1`. Guests reach the internet and each other
 through it; the host reaches guests directly.
 
+## Fixed addresses
+
+DHCP reservations by MAC, created by `scripts/create-vms.sh`. Fixed addresses
+mean the Ansible inventory never changes.
+
+| VM | IP | MAC | Role | Shape |
+|---|---|---|---|---|
+| app01 | 192.168.122.11 | 52:54:00:aa:00:11 | Tomcat 10 | 1 vCPU / 2 GB, max 4 vCPU / 4 GB |
+| web01 | 192.168.122.12 | 52:54:00:aa:00:12 | Apache 2.4 | 1 vCPU / 1 GB, no headroom |
+
+Each VM's 10 GB disk is a qcow2 overlay on the shared 597 MB base image, so the
+base is stored once. `qemu-img info` shows the `backing file:` line.
+
+Access is key-only as the `ops` user (`sudo` with no password, so Ansible can
+use `become`), using the lab key `~/.ssh/kvmlab`. Password auth is disabled in
+cloud-init.
+
+## Cloud-init
+
+No installer runs. `virt-install --import` boots the cloud image directly and
+feeds it a seed ISO with a `#cloud-config` that sets the hostname, creates
+`ops`, and installs the SSH public key. First boot completes in seconds.
+
 ## Cloud image
 
 ```bash
@@ -99,13 +122,8 @@ sudo grep 'noble-server-cloudimg-amd64.img$' SHA256SUMS | sudo sha256sum -c -
 noble-server-cloudimg-amd64.img: OK
 ```
 
-597 MB, checksum verified against the publisher's `SHA256SUMS`. The checksum
-check matters: an unverified base image is the kind of thing that is only
-noticed months later.
-
-The image is used as a **qcow2 backing file**, so each VM's 10 GB disk starts
-as a thin overlay and the 597 MB base is stored once. This is the same
-mechanism as a VMware linked clone or a Hyper-V differencing disk.
+597 MB, checksum verified against the publisher's `SHA256SUMS`. An unverified
+base image is the kind of thing that is only noticed months later.
 
 ## WSL quirk: stale `virbr0` blocks the network after a restart
 
@@ -126,13 +144,31 @@ sudo ip link delete virbr0
 virsh net-start default
 ```
 
-This is a WSL-only artifact. On a real Ubuntu host, rebooting destroys `virbr0`
-with the rest of the network namespace, so the problem does not exist. Do not
-"fix" this with a systemd `ExecStartPre` that always deletes `virbr0`: that
-would tear the network out from under running VMs on an ordinary
-`systemctl restart libvirtd`.
+### Permanent fix
 
-Run this check at the start of a work session:
+`scripts/libvirt-clear-stale-bridge.sh` is installed as an `ExecStartPre` for
+`libvirtd.service`, so `virbr0` is cleared automatically before the daemon
+starts:
+
+```bash
+sudo install -m 0755 scripts/libvirt-clear-stale-bridge.sh /usr/local/bin/
+sudo mkdir -p /etc/systemd/system/libvirtd.service.d
+printf '%s\n' '[Service]' \
+  'ExecStartPre=/usr/local/bin/libvirt-clear-stale-bridge.sh' \
+  | sudo tee /etc/systemd/system/libvirtd.service.d/10-wsl-stale-bridge.conf
+sudo systemctl daemon-reload
+```
+
+The guard matters. The script only deletes the bridge when no
+`qemu-system-x86_64` process is running, so an ordinary
+`systemctl restart libvirtd` with live VMs does not yank the network out from
+under them. An unconditional delete would have been the wrong fix.
+
+This is a WSL-only artifact. On a real Ubuntu host, rebooting destroys `virbr0`
+with the rest of the network namespace, so the problem does not exist.
+
+Verify the fix by restarting the distro and checking that the network
+self-heals:
 
 ```bash
 virsh net-list --all && ping -c1 192.168.122.1
