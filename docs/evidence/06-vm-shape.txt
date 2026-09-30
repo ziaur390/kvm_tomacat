@@ -1,21 +1,21 @@
 ### VM inventory, resources, and the snapshot used for rollback.
-### captured 2026-09-30T13:29:48Z
+### captured 2026-09-30T13:40:09Z
 
 $ virsh list --all
  Id   Name    State
 -----------------------
- 1    app01   running
  2    web01   running
+ 3    app01   running
 
 
 $ virsh dominfo app01
-Id:             1
+Id:             3
 Name:           app01
-UUID:           a57810f1-fd7f-4f74-be62-bb59c0bf903a
+UUID:           c5a5624f-3183-4664-8fd4-7b6df2950699
 OS Type:        hvm
 State:          running
 CPU(s):         1
-CPU time:       1378.2s
+CPU time:       250.3s
 Max memory:     4194304 KiB
 Used memory:    2097152 KiB
 Persistent:     yes
@@ -28,19 +28,19 @@ Security DOI:   0
 $ virsh snapshot-list app01
  Name           Creation Time               State
 -----------------------------------------------------
- clean-deploy   2026-09-30 17:27:07 +0500   running
+ clean-deploy   2026-09-30 18:38:28 +0500   running
 
 
 $ virsh net-dhcp-leases default
  Expiry Time           MAC address         Protocol   IP address          Hostname   Client ID or DUID
 -----------------------------------------------------------------------------------------------------------------------------------------------
- 2026-09-30 19:10:29   52:54:00:aa:00:11   ipv4       192.168.122.11/24   app01      ff:56:50:4d:98:00:02:00:00:ab:11:99:25:04:64:77:5e:bf:d8
- 2026-09-30 19:10:18   52:54:00:aa:00:12   ipv4       192.168.122.12/24   web01      ff:56:50:4d:98:00:02:00:00:ab:11:1c:67:f0:40:53:75:82:af
+ 2026-09-30 19:33:02   52:54:00:aa:00:11   ipv4       192.168.122.11/24   app01      ff:56:50:4d:98:00:02:00:00:ab:11:21:76:16:bf:90:fc:10:55
+ 2026-09-30 19:37:11   52:54:00:aa:00:12   ipv4       192.168.122.12/24   web01      ff:56:50:4d:98:00:02:00:00:ab:11:1c:67:f0:40:53:75:82:af
 
 
 $ ssh ops@192.168.122.11 'hostname; nproc; free -m'
 app01
 1
                total        used        free      shared  buff/cache   available
-Mem:            1867         519        1152           4         422        1347
+Mem:            1867         499         592           5        1020        1367
 Swap:              0           0           0

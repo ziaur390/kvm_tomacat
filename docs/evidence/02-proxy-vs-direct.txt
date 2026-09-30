@@ -1,6 +1,6 @@
 ### The reverse proxy is load-bearing: the app answers through web01 and is
 unreachable directly from the host, which is not on the allow list.
-### captured 2026-09-30T13:29:34Z
+### captured 2026-09-30T13:39:58Z
 
 $ curl http://192.168.122.12/labapp/health          # through Apache on web01
 OK app01

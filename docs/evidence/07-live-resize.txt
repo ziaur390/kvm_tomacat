@@ -1,6 +1,6 @@
 ### Live CPU and memory resize, and the failure mode where a hot-added vCPU
 stays offline until the guest is told to online it.
-### captured 2026-09-30T13:29:49Z
+### captured 2026-09-30T13:40:10Z
 
 $ virsh dominfo app01 | grep -E '^CPU\(s\)|Used memory'    # before
 CPU(s):         1
@@ -23,7 +23,7 @@ $ ssh ops@192.168.122.11 'echo 1 | sudo tee /sys/devices/system/cpu/cpu1/online;
 2
 
 $ virsh setmem app01 3G --live   -> visible inside the guest
-Mem:            2891         563        2132           4         422        2327
+Mem:            2891         535        1580           5        1020        2355
 
 $ virsh setvcpus app01 5 --live    # past the maximum fixed at creation
 error: invalid argument: requested vcpus is greater than max allowable vcpus for the live domain: 5 > 4

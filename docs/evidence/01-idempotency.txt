@@ -1,5 +1,5 @@
 ### Two consecutive ansible-playbook runs. The second must report changed=0.
-### captured 2026-09-30T13:28:17Z
+### captured 2026-09-30T13:39:13Z
 
 $ ansible-playbook site.yml   # run 1
 PLAY RECAP *********************************************************************
