@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 15s
+
+rule_files:
+  - alerts.yml
+
+scrape_configs:
+  # node_exporter was deployed to both VMs by the node_exporter role in M4.
+  - job_name: node
+    static_configs:
+      - targets:
+          - 192.168.122.11:9100
+          - 192.168.122.12:9100
