@@ -73,6 +73,24 @@ pooled upstream connection need a moment to agree. A rollback is near-instant
 but not atomic from the client's point of view - worth saying out loud rather
 than claiming a clean cutover.
 
+**Second wrinkle, and the more interesting one.** About a minute after the
+revert the guest rebooted on its own, with `systemd-resolved: Clock change
+detected. Flushing caches.` as the last line before the cut. Restoring a running
+memory image onto a disk image rewinds the guest clock and invalidates whatever
+I/O was in flight at snapshot time, so the guest notices something is wrong.
+
+Worth ruling out explicitly: it is not the watchdog. The domain has
+`<watchdog model='itco' action='reset'/>` because that is a virt-install
+default, but the guest never arms it - `systemctl show -p RuntimeWatchdogUSec`
+returns `0`, and nothing sets it in `systemd/system.conf`. An armed watchdog
+would have been a much nastier bug, because it would fire during the M7 load
+test and silently invalidate the capacity numbers.
+
+Practical consequence: the checksum proof still holds (the WAR came back
+correct and the site answered 200), but do not expect a memory-state revert to
+leave a guest running indefinitely. Reverting the disk and rebooting is the
+quieter option when the guest does not need to stay up.
+
 ## Live resizing
 
 `maxvcpus` and `maxmemory` were fixed when the domain was created in M2. That is

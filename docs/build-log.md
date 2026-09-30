@@ -223,3 +223,14 @@ Full write-up: [snapshots-and-resize.md](snapshots-and-resize.md)
    every later playbook run failed against guests that were still booting, so
    nothing was ever redeployed. Checksums at every step settled it. Lesson: do
    not swallow stderr on the command that is supposed to prove something.
+
+### Follow-up after the revert
+
+Roughly a minute after the memory-state revert the guest rebooted by itself, the
+last log line being `systemd-resolved: Clock change detected`. A memory restore
+rewinds the guest clock and invalidates in-flight I/O, so the guest notices.
+
+Ruled out the scary explanation: the guest does **not** arm the itco watchdog
+(`RuntimeWatchdogUSec=0`), so a watchdog reset is not the cause. That mattered to
+check, because an armed watchdog firing under load would have silently corrupted
+the M7 capacity numbers.
