@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="676" viewBox="0 0 1040 676" font-family="DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+    <marker id="dash" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#9333ea"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1040" height="676" fill="#ffffff"/>
+
+  <!-- laptop -->
+  <rect x="20" y="20" width="1000" height="636" rx="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+  <text x="42" y="52" font-size="16" font-weight="bold" fill="#0b3d66">Windows 11 laptop</text>
+  <text x="255" y="52" font-size="13" fill="#64748b">Intel i5-1155G7 &#183; 4 physical cores / 8 threads &#183; 20 GB RAM</text>
+
+  <!-- wsl -->
+  <rect x="45" y="72" width="950" height="568" rx="12" fill="#eef6fb" stroke="#4a9dd4" stroke-width="2"/>
+  <text x="67" y="99" font-size="15" font-weight="bold" fill="#11608f">WSL2 &#183; Ubuntu 24.04</text>
+  <text x="262" y="99" font-size="12.5" fill="#475569">nested virtualisation &#8212; <tspan font-family="DejaVu Sans Mono, monospace">/dev/kvm</tspan> confirmed with <tspan font-family="DejaVu Sans Mono, monospace">kvm-ok</tspan></text>
+
+  <!-- kvm -->
+  <rect x="65" y="118" width="630" height="360" rx="10" fill="#ffffff" stroke="#94a3b8" stroke-width="1.6"/>
+  <text x="85" y="144" font-size="14" font-weight="bold" fill="#334155">KVM / libvirt</text>
+  <text x="220" y="144" font-size="12" fill="#64748b">the hypervisor &#8212; creates, snapshots and resizes the machines</text>
+
+  <!-- network band -->
+  <rect x="85" y="160" width="590" height="44" rx="6" fill="#fff7ed" stroke="#fdba74" stroke-width="1.4"/>
+  <text x="101" y="180" font-size="12.5" fill="#9a3412">libvirt NAT network &#8212; <tspan font-family="DejaVu Sans Mono, monospace" font-weight="bold">192.168.122.0/24</tspan></text>
+  <text x="101" y="197" font-size="10.5" fill="#b45309">gateway .1 = this host &#183; addresses reserved by MAC, so the Ansible inventory never changes</text>
+
+  <!-- web01 -->
+  <rect x="85" y="212" width="590" height="92" rx="8" fill="#e0f2fe" stroke="#0284c7" stroke-width="1.8"/>
+  <text x="103" y="238" font-size="16" font-weight="bold" fill="#075985">web01</text>
+  <text x="175" y="238" font-size="12.5" font-family="DejaVu Sans Mono, monospace" fill="#0369a1">192.168.122.12</text>
+  <text x="103" y="261" font-size="12.5" fill="#0c4a6e">Apache 2.4 &#8212; reverse proxy, the only machine the outside world can reach</text>
+  <text x="103" y="283" font-size="12" fill="#475569">1 vCPU / 1 GB &#183; ufw: ssh, :80 public, :9100 monitoring only</text>
+  <rect x="492" y="222" width="168" height="26" rx="13" fill="#16a34a"/>
+  <text x="576" y="239" font-size="12" font-weight="bold" fill="#ffffff" text-anchor="middle">port 80 &#8212; PUBLIC</text>
+
+  <!-- arrow web01 -> app01 -->
+  <line x1="380" y1="304" x2="380" y2="336" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="392" y="325" font-size="12" fill="#334155">proxied to :8080</text>
+
+  <!-- app01 -->
+  <rect x="85" y="338" width="590" height="120" rx="8" fill="#dcfce7" stroke="#16a34a" stroke-width="1.8"/>
+  <text x="103" y="364" font-size="16" font-weight="bold" fill="#14532d">app01</text>
+  <text x="175" y="364" font-size="12.5" font-family="DejaVu Sans Mono, monospace" fill="#15803d">192.168.122.11</text>
+  <text x="103" y="387" font-size="12.5" fill="#14532d">Tomcat 10 &#8212; Java application server, serves <tspan font-family="DejaVu Sans Mono, monospace">labapp.war</tspan></text>
+  <text x="103" y="409" font-size="12" fill="#475569">starts at 1 vCPU / 2 GB &#183; ceiling of 4 vCPU / 4 GB fixed at creation</text>
+  <text x="103" y="431" font-size="12" fill="#b91c1c">ufw: :8080 reachable from web01 only &#8212; direct access from outside gets no answer</text>
+  <rect x="474" y="348" width="186" height="26" rx="13" fill="#b91c1c"/>
+  <text x="567" y="365" font-size="12" font-weight="bold" fill="#ffffff" text-anchor="middle">:8080 &#8212; WEB01 ONLY</text>
+
+  <!-- monitoring -->
+  <rect x="715" y="118" width="258" height="360" rx="10" fill="#faf5ff" stroke="#a855f7" stroke-width="1.6"/>
+  <text x="733" y="144" font-size="14" font-weight="bold" fill="#6b21a8">Monitoring</text>
+  <text x="828" y="144" font-size="11.5" fill="#7e22ce">Docker containers</text>
+
+  <rect x="733" y="160" width="222" height="92" rx="7" fill="#ffffff" stroke="#c084fc" stroke-width="1.3"/>
+  <text x="747" y="183" font-size="13.5" font-weight="bold" fill="#6b21a8">Prometheus 3.15</text>
+  <text x="747" y="203" font-size="11.5" fill="#475569">collects every 15 s</text>
+  <text x="747" y="222" font-size="11.5" fill="#475569">stores the history</text>
+  <text x="747" y="241" font-size="11.5" fill="#475569">evaluates 4 alert rules</text>
+
+  <rect x="733" y="264" width="222" height="92" rx="7" fill="#ffffff" stroke="#c084fc" stroke-width="1.3"/>
+  <text x="747" y="287" font-size="13.5" font-weight="bold" fill="#6b21a8">Grafana 13.2</text>
+  <text x="747" y="307" font-size="11.5" fill="#475569">draws the numbers</text>
+  <text x="747" y="326" font-size="11.5" fill="#475569">dashboard imported</text>
+  <text x="747" y="345" font-size="11.5" fill="#475569">from the repo, not clicked</text>
+
+  <text x="747" y="386" font-size="11.5" fill="#6b21a8">Scrapes <tspan font-family="DejaVu Sans Mono, monospace" fill="#334155">:9100</tspan> on both</text>
+  <text x="747" y="404" font-size="11.5" fill="#475569">machines, where the</text>
+  <text x="747" y="422" font-size="11.5" fill="#475569">node_exporter agent runs</text>
+  <text x="747" y="448" font-size="11.5" fill="#b45309">host networking required</text>
+  <text x="747" y="464" font-size="11.5" fill="#b45309">to reach the NAT network</text>
+
+  <!-- scrape arrows -->
+  <line x1="715" y1="252" x2="681" y2="252" stroke="#9333ea" stroke-width="1.8" stroke-dasharray="5 3" marker-end="url(#dash)"/>
+  <line x1="715" y1="360" x2="681" y2="390" stroke="#9333ea" stroke-width="1.8" stroke-dasharray="5 3" marker-end="url(#dash)"/>
+
+  <!-- legend -->
+  <rect x="65" y="498" width="908" height="122" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.3"/>
+  <text x="85" y="522" font-size="13" font-weight="bold" fill="#0b3d66">What happens when someone opens the page</text>
+  <text x="85" y="546" font-size="12" fill="#334155"><tspan font-weight="bold">1.</tspan>  A browser asks for <tspan font-family="DejaVu Sans Mono, monospace">http://192.168.122.12/labapp/health</tspan> &#8212; this is web01, the only public door.</text>
+  <text x="85" y="566" font-size="12" fill="#334155"><tspan font-weight="bold">2.</tspan>  Apache does not answer itself. It hands the request to app01:8080 and brings the answer back. That is a reverse proxy.</text>
+  <text x="85" y="586" font-size="12" fill="#334155"><tspan font-weight="bold">3.</tspan>  Tomcat finds <tspan font-family="DejaVu Sans Mono, monospace">/labapp</tspan>, runs <tspan font-family="DejaVu Sans Mono, monospace">health.jsp</tspan>, and prints <tspan font-family="DejaVu Sans Mono, monospace">OK app01</tspan> &#8212; the name of the machine that did the work.</text>
+  <text x="85" y="608" font-size="12" fill="#64748b">The answer says <tspan font-family="DejaVu Sans Mono, monospace">app01</tspan> even though the visitor asked <tspan font-family="DejaVu Sans Mono, monospace">web01</tspan>, which is how the proxy is proven rather than assumed.</text>
+
+  <text x="502" y="672" font-size="11" fill="#94a3b8" text-anchor="middle">Source: docs/architecture.svg &#183; regenerate the PNG with bash docs/render-diagram.sh</text>
+</svg>
