@@ -20,7 +20,8 @@ One entry per module. Raw commands, real output, and what broke.
 - Host: Windows 11 Pro, 20 GB RAM, 8 cores exposed to WSL2
 - Guest host: WSL2 Ubuntu 24.04.3 LTS, systemd PID 1, `/dev/kvm` present
 - Repo lives at `~/kvm-tomcat-lab` inside WSL (native ext4, not `/mnt/c`)
-- Git remote: `git@github.com:ziaur390/kvm_tomacat.git`
+- Git remote: `git@github.com:ziaur390/kvm_tomcat.git` (originally created as
+  `kvm_tomacat`; renamed later, and GitHub redirects the old URL)
 
 ## M0 - Repository scaffold
 
