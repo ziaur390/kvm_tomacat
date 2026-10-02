@@ -1,267 +1,238 @@
 # kvm-tomcat-lab
 
-A two-tier Java application tier built on KVM virtual machines: Apache
-reverse-proxies to Tomcat 10. Provisioned with idempotent Ansible, protected by
-snapshots and a checksum-verified backup, monitored with Prometheus and Grafana,
-and sized with a measured load test rather than a guess.
+**A two-tier Java application tier built on virtual machines — from an empty host
+to a tested disaster recovery plan.**
 
-Everything below is measured output from this lab. The raw output behind each
-claim is in [`docs/evidence/`](docs/evidence/) and can be regenerated with
-`bash scripts/capture-evidence.sh`.
+Two Linux VMs. Apache reverse-proxies to Tomcat 10. Everything is built and
+configured by Ansible, backed up with checksum-verified restores, monitored with
+Prometheus and Grafana, and sized with a real load test.
 
-> **Just want to understand it?** There is a 42-page plain-English study guide
-> that explains every tool in this project - what it is, why it was needed, how
-> it is used here, and where you will meet it in a real job - starting from zero
-> assumed knowledge. Read the PDF: **[kvm-tomcat-lab-study-guide.pdf](docs/kvm-tomcat-lab-study-guide.pdf)**, or the
-> Markdown sources in [`docs/study-guide/`](docs/study-guide/) (rebuild with
-> `bash docs/study-guide/build-pdf.sh`).
+The interesting part is not that it works. It is that **every claim below is
+measured output from the running lab**, including the eight things that broke on
+the way.
 
-## Architecture
+![Architecture: two virtual machines under KVM, Apache in front of Tomcat, Prometheus and Grafana on the host](docs/architecture.png)
 
-```
-Windows 11 host - Intel i5-1155G7, 4 cores / 8 threads, 20 GB RAM
-└── WSL2 Ubuntu 24.04 (nested virtualisation, /dev/kvm available)
-    ├── KVM / libvirt
-    │   └── NAT network 192.168.122.0/24
-    │       ├── web01  192.168.122.12   Apache 2.4     1 vCPU / 1 GB
-    │       └── app01  192.168.122.11   Tomcat 10      1-4 vCPU / 2-4 GB
-    │                                   labapp.war     maxvcpus 4 set at creation
-    └── Prometheus 3.15.0 + Grafana 13.2.3  (host networking, scrapes :9100)
-```
+---
 
-Request path: client → `web01:80` (Apache) → `app01:8080` (Tomcat) → `labapp`.
-Only `web01:80` is reachable from outside the lab; `app01:8080` is firewalled to
-the web tier, which is what makes the reverse proxy load-bearing rather than
-decorative.
+## The results
 
-`app01` is deliberately built undersized at 1 vCPU. That is not an oversight - it
-exists so the load test has a bottleneck to find and a scaling story to tell.
-
-## Measured results
-
-| Claim | Result | Evidence |
+| What was tested | Result | Output |
 |---|---|---|
-| Ansible is idempotent | second run: `app01 changed=0`, `web01 changed=0` | [01](docs/evidence/01-idempotency.txt) |
-| Apache proxies to Tomcat | `curl` through web01 → `OK app01` | [02](docs/evidence/02-proxy-vs-direct.txt) |
-| Tomcat is not directly reachable | `app01:8080` from the host: HTTP 000, curl exit 28 (dropped) | [02](docs/evidence/02-proxy-vs-direct.txt) |
-| Backup restores, not just archives | `RESTORE VERIFIED: 5 files match` | [03](docs/evidence/03-backup-restore-verified.txt) |
-| Backup verification rejects a bad backup | tampered manifest → `RESTORE MISMATCH`, exit 1 | [04](docs/evidence/04-backup-failure-drill.txt) |
-| Backup exists off the VM | 2 archives in `~/kvm-lab-backups`, `sha256sum -c` OK | [05](docs/evidence/05-offvm-copy.txt) |
-| Snapshot rollback | 5.1 s revert, no reboot, content hash unchanged | [snapshots](docs/snapshots-and-resize.md) |
-| Live resize | memory hot-added live; a hot-added vCPU stays offline until onlined | [07](docs/evidence/07-live-resize.txt) |
-| Monitoring | 2 targets `up`, 4 alert rules, dashboard imported by script | [08](docs/evidence/08-monitoring.txt) |
-| **Recovery from total VM loss** | **348 s (5 min 48 s) to a working service** | [disaster-recovery](docs/disaster-recovery.md) |
+| Build and configure both machines from one command, twice | second run: **`changed=0`** across 18 tasks | [evidence](docs/evidence/01-idempotency.txt) |
+| Recover from **total VM loss** | **5 min 48 s** to a working service | [write-up](docs/disaster-recovery.md) |
+| Backup restores onto a machine that never had the app | **`RESTORE VERIFIED: 5 files match`** | [evidence](docs/evidence/03-backup-restore-verified.txt) |
+| The backup checker rejects a corrupted backup | **`RESTORE MISMATCH`**, exit 1 | [evidence](docs/evidence/04-backup-failure-drill.txt) |
+| Scale the app VM from 1 to 4 vCPU | **17.9 → 44.1 requests/sec** (2.46×) | [analysis](docs/capacity-planning.md) |
+| Only one door open to the outside | direct `app01:8080`: no answer | [evidence](docs/evidence/02-proxy-vs-direct.txt) |
+| Roll back a bad change without rebooting | **5.1 s**, content hash unchanged | [write-up](docs/snapshots-and-resize.md) |
 
-Snapshots (KVM console, `virsh list` and `dominfo`) - see
-[docs/screenshots/](docs/screenshots/).
+## What this is
 
-## Capacity planning
+Two virtual machines on a Linux host, talking over a private network:
 
-`bash scripts/capacity-test.sh` hot-adds vCPUs, onlines them inside the guest,
-and runs `ab -n 2000 -c 20` against `/labapp/work` at each size. Peak CPU is read
-back from Prometheus rather than eyeballed off a graph.
+- **web01** runs Apache. It is the only machine the outside world can reach, on
+  port 80. It does not serve the application; it forwards requests to app01 and
+  brings the answers back.
+- **app01** runs Tomcat 10, serving a small Java web application from a WAR file.
+  It starts at 1 vCPU so that the load test has a real bottleneck to find.
 
-| app01 vCPUs | guest `nproc` | req/sec | p95 | app01 CPU | web01 CPU | host CPU |
-|---|---|---|---|---|---|---|
-| 1 | 1 | 17.93 | 1497 ms | 100% | 14% | 16% |
-| 2 | 2 | 29.18 | 971 ms | 100% | 14% | 31% |
-| 4 | 4 | 44.14 | 761 ms | 100% | 14% | 56% |
+The machines are not configured by hand. A single Ansible playbook describes what
+each machine should look like, and running it twice changes nothing the second
+time. That property — *idempotency* — is what makes the setup reproducible instead
+of a list of commands somebody ran once.
 
-4x the CPUs bought **2.46x** the throughput, and p95 improved **2.0x**.
+Around that core: a nightly backup whose restore is verified by checksum, a
+firewall that makes the two-tier design real rather than decorative, Prometheus
+and Grafana watching both machines, and a load test that produced an actual
+capacity-planning result.
 
-What the table rules out, which is the more useful half of the result:
+## How a request flows
 
-- **app01 is the bottleneck.** Its CPU is pinned at 100% at every size, so the
-  application really is CPU-bound.
-- **The proxy tier is not the constraint.** web01 sits at 14% regardless.
-- **The host is not exhausted**, rising 16% → 56% and never saturating, so the
-  flattening is not "out of machine" and the load generator is not the limit.
-- **The host is 4 physical cores with SMT.** At 4 vCPUs, app01 occupies every
-  physical core, sharing them with the load generator, Apache, Prometheus and
-  Grafana. Sibling hyperthreads share execution units, which explains why the
-  3rd and 4th vCPU add less than the 1st and 2nd.
+1. A browser asks for `http://192.168.122.12/labapp/health`. That is **web01**.
+2. Apache does not answer. It hands the request to `app01:8080` — a **reverse
+   proxy** — and passes the answer back untouched.
+3. Tomcat finds the `/labapp` application, runs `health.jsp`, and prints
+   `OK app01`.
 
-What the data cannot separate: shared-core contention from the JVM's own serial
-parts (GC, single-threaded components). Both produce the same curve, and telling
-them apart needs the JMX exporter.
+The reply says `app01` even though the visitor asked `web01`. That is how the
+proxy is *proven* rather than assumed.
 
-**Measurement honesty:** the same experiment run twice differed by a consistent
-~20% per data point (14.71 / 23.88 / 36.65 once, 17.93 / 29.18 / 44.14 again),
-which is systematic rather than noise. The *shape* reproduced and is the finding;
-the absolute requests per second are indicative, not precise. Full analysis in
-[capacity-planning.md](docs/capacity-planning.md).
+## Why two machines instead of one
+
+A single machine could do both jobs. Splitting them buys four things that a real
+system needs:
+
+- **One public door.** The application server is not directly reachable, which
+  the firewall enforces and the evidence above shows.
+- **One place for security.** TLS, in a real deployment, is configured once at the
+  proxy. The app server never handles certificates.
+- **One place for logs and rate limiting.** Every request passes one point.
+- **Room to grow sideways.** Adding a second app machine later is a change to
+  Apache's configuration, not a redesign.
+
+## What's worth a closer look
+
+If you are reading this to judge the engineering rather than the result, these are
+the parts that took thought:
+
+- **The backup verifies a restore, not an archive.** It unpacks the archive into a
+  scratch directory and compares checksums against a manifest from the source,
+  because checksumming the archive only proves the file did not rot — not that it
+  contains the application. [details](docs/backup-and-restore.md)
+- **The backup refuses to run on an empty directory.** Two empty manifests compare
+  equal, so an unguarded tool prints `RESTORE VERIFIED: 0 files match` forever
+  while protecting nothing. During this build the deployment directory really was
+  empty for a while. [details](docs/backup-and-restore.md)
+- **The firewall rules are ordered deliberately.** Every "allow" is applied before
+  the default-deny policy is switched on, because reversed, the first thing an
+  empty deny ruleset kills is the SSH session running the playbook.
+- **The capacity result is analysed for what it rules out**, not just reported.
+  app01 pinned at 100% CPU at every size, web01 at 14%, the host never above 56% —
+  which together say the application is the bottleneck and neither the proxy tier
+  nor host exhaustion explains the sublinear scaling.
+  [analysis](docs/capacity-planning.md)
+- **Grafana's datasource and dashboard come from the repository**, not from
+  clicking in a UI, so a fresh clone comes up working.
+
+## Stack
+
+KVM / libvirt · cloud-init · qcow2 · Ansible · Apache 2.4 · Tomcat 10 (Jakarta EE)
+· JSP · systemd timers · bash · tar + SHA-256 integrity verification · rsync ·
+Prometheus · Grafana · Docker Compose · ufw · git
+
+Host: Windows 11 + WSL2 Ubuntu 24.04 with nested virtualisation.
+Built and tested on Ubuntu 24.04 LTS.
 
 ## Reproduce
 
-Requires a host with virtualization support. Steps 1-3 take about 20 minutes.
+Takes about 20 minutes on a machine with virtualisation support. Steps 1 and 2 are
+in [docs/host-setup.md](docs/host-setup.md) in more detail.
 
 ```bash
-# 1. KVM host: qemu, libvirt, virtinst, cloud image. See docs/host-setup.md
+# 1. KVM host: hypervisor, tools, and the Ubuntu cloud image
 sudo apt-get install -y qemu-system-x86 qemu-utils libvirt-daemon-system \
   libvirt-clients virtinst cpu-checker zip
 sudo systemctl enable --now libvirtd
 
-# 2. Two VMs with fixed addresses, from the cloud image
+# 2. Two VMs with fixed addresses, built from the cloud image
 bash scripts/create-vms.sh
 
-# 3. Build the WAR and configure both VMs
+# 3. Build the app and configure both machines
 bash app/build.sh
 ansible-playbook site.yml
 
-# 4. The application answers, through the proxy
+# 4. It answers, through the proxy
 curl http://192.168.122.12/labapp/health
 # OK app01
 ```
 
-Optional extras:
+Optional, in rough order of interest:
 
 ```bash
-cd monitoring && docker compose up -d          # Prometheus :9090, Grafana :3000
-bash monitoring/import-dashboard.sh            # Node Exporter Full (ID 1860)
-bash scripts/capture-evidence.sh               # regenerate docs/evidence/
-bash scripts/capacity-test.sh                  # the capacity table above
-bash scripts/backup-failure-drill.sh           # prove the backup checker fails
+bash scripts/backup-failure-drill.sh    # prove the backup checker rejects bad input
+bash scripts/capacity-test.sh           # the load test sweep from the results table
+bash scripts/capture-evidence.sh        # regenerate docs/evidence/ yourself
+cd monitoring && docker compose up -d   # Prometheus :9090, Grafana :3000
+bash monitoring/import-dashboard.sh     # Node Exporter Full dashboard
+bash docs/study-guide/build-pdf.sh      # rebuild the PDFs below
 ```
 
-## Snapshot versus backup
+## What broke
 
-Interviewers ask this every time.
+Written up properly in [the build log](docs/build-log.md) and in plain English in
+the study guide. Five worth knowing, because each one is a mistake worth not
+repeating:
 
-A **snapshot** is a point-in-time state that lives on the same storage as the VM.
-It is for fast rollback before a risky change. It does not protect you from
-losing the disk - which this project demonstrates literally: the disaster
-recovery drill destroys `app01` with `--remove-all-storage`, and the
-`clean-deploy` snapshot dies with it.
-
-A **backup** is an independent copy stored elsewhere and verified. It is for
-disaster recovery. Here that means an archive of the deployment, a SHA-256
-manifest, a restore-to-scratch comparison, and a copy pulled off the VM whose
-checksum is re-checked after the transfer.
-
-## How this maps to VMware and Hyper-V
-
-The lab used KVM. These are the equivalents, and being clear about which tooling
-was actually used is stronger than implying experience that does not exist.
-
-| KVM/libvirt (used here) | vSphere | Hyper-V |
-|---|---|---|
-| `virsh snapshot-create-as` | VM snapshot | Checkpoint |
-| `virsh snapshot-revert` | Revert to snapshot | Apply checkpoint |
-| `virsh setvcpus/setmem --live` | Hot-add CPU/memory | Dynamic Memory, processor change |
-| qcow2 backing-file overlay | Linked clone | Differencing disk |
-| `maxvcpus` / `maxmemory` at creation | VM limits fixed at creation | Startup/maximum RAM |
-| libvirt `default` NAT network | Standard vSwitch / port group | Virtual switch (NAT/internal) |
-| `virsh migrate` | vMotion | Live Migration |
-
-## Lessons learned
-
-Five real things broke. The full list, including the ones that cost hours, is in
-[the build log](docs/build-log.md).
-
-**1. A guard that can never be false is not a guard.** A WSL restart leaves
-libvirt's `virbr0` bridge behind, which blocks the network coming up, so a script
-deletes the stale bridge before `libvirtd` starts - guarded by
-`pgrep -x qemu-system-x86_64`. Linux truncates process names to 15 characters, so
-that pattern matches nothing, the negation is always true, and the "safety" check
-would have deleted the network out from under running VMs. Replaced with a check
-of the bridge's own attached ports. It looked correct in review; only testing it
-against a live VM caught it.
-
-**2. An idempotency claim is only as good as the artifact.** `zip` writes extra
-metadata, so rebuilding an unchanged WAR produced a different file, the Ansible
-copy task reported `changed` forever, and the `changed=0` proof was quietly
-false. `zip -X` fixed it. The lesson generalises: verify that the thing you feed
-into an idempotency check is itself reproducible.
-
-**3. WSL tears down the distro when the last session exits.** That stops
-`libvirtd`, which takes qemu with it, so the guests were power-cycled between
-almost every command and my work kept vanishing. Found by noticing that kernel
-boot messages repeated while `boot_id` and `/proc/uptime` carried on unchanged -
-the VM kernel stays alive, only the distro is torn down. Fixed by holding a
-session open, and verified by watching process start times stop changing.
-
-**4. An empty directory archives and verifies perfectly.** Two empty manifests
-compare equal, so a backup tool without a guard prints `RESTORE VERIFIED: 0 files
-match` for a deployment directory containing nothing. The deployment really was
-empty for a while during this build, so the guard against it is in the tool.
-
-**5. Never swallow stderr on the command that is supposed to prove something.**
-A destructive command had worked, but the listing before it printed nothing
-because the SSH connection dropped and the error went to `/dev/null`. An empty
-output looked exactly like an empty directory, and I spent several turns chasing
-a lost-write theory that did not exist.
+1. **A guard that could never say "no".** The safety check deciding whether to
+   delete a network bridge used `pgrep -x qemu-system-x86_64`. Linux truncates
+   process names to 15 characters, so that never matches, the negation is always
+   true, and the "safety" check would have deleted the network out from under
+   running VMs. It looked correct in review.
+2. **An idempotency proof that was quietly false.** `zip` writes extra metadata, so
+   rebuilding an unchanged WAR produced a different file and the deploy task
+   reported `changed` forever. The checklist was fine; the input was not stable.
+3. **Guests being power-cycled between commands.** WSL tears down the Linux user
+   space when the last session closes, which kills the VM manager and the VMs with
+   it. Found by noticing that kernel boot messages repeated while `boot_id` and
+   uptime stayed constant — two facts that could not both be true.
+4. **A dropped SSH connection that looked like an empty directory.** The error
+   output had been sent to `/dev/null`. An empty listing was mistaken for evidence,
+   and several turns went into a theory that did not exist.
+5. **A hot-added CPU that stayed asleep.** libvirt reported 2 vCPUs, the guest
+   reported 1. The kernel had logged `ACPI: CPU1 has been hot-added` and then left
+   the CPU offline. The obvious verification step fails silently.
 
 ## Limitations
 
-Stated plainly, because a portfolio project that lists no weaknesses is not
-credible:
+A portfolio project that lists no weaknesses is not credible.
 
-- **Single host, no high availability.** One app VM. If `app01` is down, the site
-  is down; the firewall is not redundancy.
-- **Absolute performance numbers describe a laptop.** Nested virtualisation on an
-  i5-1155G7 with 4 physical cores. The method and the shape of the scaling curve
-  are the transferable parts.
+- **Single host, no high availability.** One app VM. If it is down, the site is
+  down. A firewall is not redundancy.
+- **The performance numbers describe a laptop.** Nested virtualisation on an
+  i5-1155G7 with 4 physical cores. The method and the shape of the curve transfer;
+  the absolute figures do not.
 - **The off-VM backup copy is on the same physical machine.** It survives losing
-  the VM, not losing the host.
-- **The backup covers the deployment, not the machine.** In this lab the WAR is
-  also in git, so the backup is not the only recovery path - a truer test would
-  involve state that git does not hold.
-- **SSH is open to any address** and there is no TLS on port 80. Both are
-  deliberate so the lab stays reachable; [hardening.md](docs/hardening.md) lists
-  these and the other gaps.
+  the VM, which is tested, not losing the host, which is not.
+- **In this lab the backup is not the only copy.** The WAR is also in git, so the
+  playbook alone restored a working service in the 348-second test. A truer test
+  of "the backup was all I had" needs state that git does not hold.
 - **Lab-grade settings** that would not ship: host key checking disabled in
-  `ansible.cfg`, Grafana on `admin/admin`, no secrets management.
-- **Not tested on VMware or Hyper-V.** The concepts map (see the table above),
-  but the tooling used was KVM.
+  `ansible.cfg`, Grafana on `admin/admin`, no secrets management, SSH open to any
+  address, no TLS.
+- **Not tested on VMware or Hyper-V.** The tooling used was KVM; the concepts map,
+  as the table in [the study guide](docs/kvm-tomcat-lab-study-guide.pdf) sets out.
+
+## Where to read more
+
+- **[Study guide (PDF, 42 pages)](docs/kvm-tomcat-lab-study-guide.pdf)** — every
+  tool explained from zero: what it is, why it was needed here, and where you meet
+  it in a real job. Sources in [`docs/study-guide/`](docs/study-guide/).
+- **[Complete documentation (PDF, 92 pages)](docs/kvm-tomcat-lab-complete.pdf)** —
+  the guide plus this README plus every write-up plus the raw evidence.
+- [Build log](docs/build-log.md) — module by module, in order, with what broke.
+- [Host setup](docs/host-setup.md) · [Snapshots and resizing](docs/snapshots-and-resize.md)
+  · [Backup and restore](docs/backup-and-restore.md) ·
+  [Capacity planning](docs/capacity-planning.md) · [Hardening](docs/hardening.md) ·
+  [Disaster recovery](docs/disaster-recovery.md)
+- [Raw evidence](docs/evidence/) — the command output behind every number above.
 
 ## Repository layout
 
 ```
 .
-├── ansible.cfg, inventory.ini, site.yml
-├── app/                     health.jsp, work.jsp, web.xml, build.sh -> labapp.war
+├── ansible.cfg, inventory.ini, site.yml    the playbook and its address book
+├── app/                    health.jsp, work.jsp, web.xml, build.sh -> labapp.war
 ├── roles/
-│   ├── common/              apt cache, curl, htop, rsync
-│   ├── tomcat/              Tomcat 10, deploys the WAR, health-checked
-│   ├── apache/              reverse proxy vhost
-│   ├── backup/              verified backup script, systemd service + timer
-│   ├── node_exporter/       metrics agent
-│   └── hardening/           ufw rules matching the two-tier design
-├── monitoring/              Prometheus, Grafana, alert rules, dashboard import
-├── scripts/                 create-vms, capacity-test, evidence, DR helpers
+│   ├── common/             apt cache, curl, htop, rsync
+│   ├── tomcat/             Tomcat 10, deploys the WAR, health-checked
+│   ├── apache/             reverse proxy virtual host
+│   ├── backup/             verified backup script, systemd service + timer
+│   ├── node_exporter/      metrics agent
+│   └── hardening/          ufw rules matching the two-tier design
+├── monitoring/             Prometheus, Grafana, alert rules, dashboard import
+├── scripts/                create-vms, capacity-test, evidence, DR helpers
 └── docs/
-    ├── kvm-tomcat-lab-study-guide.pdf   plain-English guide to every tool used
-    ├── study-guide/         the study guide sources, one file per chapter
-    ├── build-log.md         module-by-module log, including what broke
-    ├── host-setup.md        KVM host install and the WSL quirks
-    ├── snapshots-and-resize.md
-    ├── backup-and-restore.md
-    ├── capacity-planning.md
-    ├── hardening.md
-    ├── disaster-recovery.md
-    ├── interview-notes.md   the questions this project prepares you for
-    └── evidence/            raw output behind every claim in this README
+    ├── kvm-tomcat-lab-study-guide.pdf     plain-English guide to every tool
+    ├── kvm-tomcat-lab-complete.pdf        everything in one document
+    ├── architecture.svg / .png            the diagram above
+    ├── study-guide/                       guide sources, one file per chapter
+    ├── evidence/                          raw output behind every claim
+    └── ...                                the write-ups listed above
 ```
 
-## Definition of done
+## Status
+
+All nine build modules are complete, and the definition of done is signed off:
 
 - [x] Both VMs run and are reachable over key-only SSH
 - [x] `ansible-playbook site.yml` twice, second run `changed=0`
-- [x] `curl` via Apache returns `OK app01`
+- [x] `curl` through Apache returns `OK app01`
 - [x] Snapshot taken, deliberate breakage, revert works (5.1 s)
-- [x] Live vCPU/memory resize shown with `nproc` and `free -m`
+- [x] Live vCPU and memory resize shown with `nproc` and `free -m`
 - [x] Backup shows `RESTORE VERIFIED`; tamper drill shows `RESTORE MISMATCH`
-- [x] Backup copied to the host and checksum-verified
-- [x] Prometheus targets UP, Grafana dashboard working
-- [x] Load test table filled in with real numbers
+- [x] Backup copied off the VM and checksum-verified
+- [x] Prometheus targets `up`, Grafana dashboard working
+- [x] Load test table filled in with measured numbers
 - [x] Disaster recovery drill: total VM loss to working service in 348 s
-- [x] README complete with a real "Lessons learned"
-- [x] Study guide written for someone starting from zero (42 pages)
-
-## Stack
-
-KVM / libvirt, cloud-init, qcow2, Ansible, Apache 2.4, Tomcat 10 (Jakarta EE),
-JSP, systemd timers, tar/SHA-256 integrity verification, rsync, Prometheus,
-Grafana, ufw, bash.
-
-Built on Ubuntu 24.04 LTS.
+- [x] Reviewed README, evidence and a plain-English study guide
